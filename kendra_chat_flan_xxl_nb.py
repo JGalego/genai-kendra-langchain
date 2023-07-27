@@ -1,16 +1,17 @@
 # pylint: disable=invalid-name,line-too-long
 """
 Adapted from
-https://github.com/aws-samples/amazon-kendra-langchain-extensions/blob/main/kendra_retriever_samples/kendra_chat_flan_xl.py
+https://github.com/aws-samples/amazon-kendra-langchain-extensions/blob/main/kendra_retriever_samples/kendra_chat_flan_xxl.py
 """
 
 import json
 import os
 
-from langchain import SagemakerEndpoint
 from langchain.chains import ConversationalRetrievalChain
-from langchain.llms.sagemaker_endpoint import LLMContentHandler
 from langchain.prompts import PromptTemplate
+from langchain import SagemakerEndpoint
+from langchain.llms.sagemaker_endpoint import LLMContentHandler
+
 from langchain.retrievers import AmazonKendraRetriever
 
 class bcolors:  #pylint: disable=too-few-public-methods
@@ -36,7 +37,7 @@ def build_chain():
     """
     region = os.environ["AWS_REGION"]
     kendra_index_id = os.environ["KENDRA_INDEX_ID"]
-    endpoint_name = os.environ["FLAN_XL_ENDPOINT"]
+    endpoint_name = os.environ["FLAN_XXL_ENDPOINT"]
 
     class ContentHandler(LLMContentHandler):
         """
@@ -47,12 +48,12 @@ def build_chain():
         accepts = "application/json"
 
         def transform_input(self, prompt: str, model_kwargs: dict) -> bytes:
-            input_str = json.dumps({"text_inputs": prompt, **model_kwargs})
+            input_str = json.dumps({"inputs": prompt, "parameters": model_kwargs})
             return input_str.encode('utf-8')
 
         def transform_output(self, output: bytes) -> str:
             response_json = json.loads(output.read().decode("utf-8"))
-            return response_json["generated_texts"][0]
+            return response_json[0]["generated_text"]
 
     content_handler = ContentHandler()
 

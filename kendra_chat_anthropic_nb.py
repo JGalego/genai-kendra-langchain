@@ -1,15 +1,12 @@
 # pylint: disable=invalid-name,line-too-long
 """
 Adapted from
-https://github.com/aws-samples/amazon-kendra-langchain-extensions/blob/main/kendra_retriever_samples/kendra_chat_flan_xl.py
+https://github.com/JGalego/amazon-kendra-langchain-extensions/blob/main/kendra_retriever_samples/kendra_chat_anthropic.py
 """
-
-import json
 import os
 
-from langchain import SagemakerEndpoint
 from langchain.chains import ConversationalRetrievalChain
-from langchain.llms.sagemaker_endpoint import LLMContentHandler
+from langchain.chat_models import ChatAnthropic as Anthropic
 from langchain.prompts import PromptTemplate
 from langchain.retrievers import AmazonKendraRetriever
 
@@ -34,54 +31,33 @@ def build_chain():
     """
     Builds the LangChain chain
     """
-    region = os.environ["AWS_REGION"]
+    anthropic_api_key = os.environ["ANTHROPIC_API_KEY"]
     kendra_index_id = os.environ["KENDRA_INDEX_ID"]
-    endpoint_name = os.environ["FLAN_XL_ENDPOINT"]
 
-    class ContentHandler(LLMContentHandler):
-        """
-        Handler class to transform input and ouput
-        into a format that the SageMaker Endpoint can understand
-        """
-        content_type = "application/json"
-        accepts = "application/json"
-
-        def transform_input(self, prompt: str, model_kwargs: dict) -> bytes:
-            input_str = json.dumps({"text_inputs": prompt, **model_kwargs})
-            return input_str.encode('utf-8')
-
-        def transform_output(self, output: bytes) -> str:
-            response_json = json.loads(output.read().decode("utf-8"))
-            return response_json["generated_texts"][0]
-
-    content_handler = ContentHandler()
-
-    # Initialize LLM hosted on a SageMaker endpoint
-    # https://python.langchain.com/en/latest/modules/models/llms/integrations/sagemaker.html
-    llm=SagemakerEndpoint(
-        endpoint_name=endpoint_name,
-        region_name="us-east-1",
-        model_kwargs={"temperature":1e-10, "max_length": 500},
-        content_handler=content_handler
+    llm = Anthropic(
+        temperature=0,
+        anthropic_api_key=anthropic_api_key,
+        max_tokens_to_sample=512
     )
 
-    # Initialize Kendra index retriever
-    retriever = AmazonKendraRetriever(
-       index_id=kendra_index_id,
-       region_name=region
-    )
+    retriever = AmazonKendraRetriever(index_id=kendra_index_id)
 
-    # Define prompt template
-    # https://python.langchain.com/en/latest/modules/prompts/prompt_templates.html
     prompt_template = """
-The following is a friendly conversation between a human and an AI. 
-The AI is talkative and provides lots of specific details from its context.
-If the AI does not know the answer to a question, it truthfully says it 
-does not know.
+Human: This is a friendly conversation between a human and an AI. 
+The AI is talkative and provides specific details from its context but limits it to 240 tokens.
+If the AI does not know the answer to a question, it truthfully says it does not know.
+
+Assistant: OK, got it, I'll be a talkative truthful AI assistant.
+
+Human: Here are a few documents in <documents> tags:
+<documents>
 {context}
-Instruction: Based on the above documents, provide a detailed answer for,
-{question} Answer "don't know" if not present in the document. Solution:
-"""
+</documents>
+Based on the above documents, provide a detailed answer for, {question} Answer "don't know" 
+if not present in the document. 
+
+Assistant:"""
+
     qa_prompt = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
     )

@@ -1,2 +1,3 @@
 .ipynb_checkpoints
 amazon-kendra-langchain-extensions
+*.pyc
